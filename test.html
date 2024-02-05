@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>React App</title>
+   <!-- Bootstrap CSS CDN link -->
+   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+   <!-- jQuery, Popper.js, and Bootstrap JavaScript CDN links -->
+   <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+
+   <!-- React and ReactDOM CDN links -->
+   <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+   <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+   <!-- Babel CDN link for JSX -->
+   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+   <style>
+      /* Custom styles */
+      body {
+         background-color: #f8f9fa;
+      }
+
+      .container {
+         background-color: #fff;
+         padding: 30px;
+         border-radius: 5px;
+         box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+
+      label {
+         font-weight: bold;
+         margin-bottom: 5px;
+      }
+
+      input,
+      .form-check-input {
+         padding: 10px;
+         margin-bottom: 15px;
+         border: 1px solid #ced4da;
+         border-radius: 4px;
+         box-sizing: border-box;
+      }
+
+      .form-check-label {
+         margin-left: 7px;
+      }
+      .sector-label{
+         margin-right: 20px;
+      }
+
+      button {
+         padding: 10px 20px;
+         margin-right: 10px;
+      }
+   </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+   const { useState, useEffect } = React;
+
+   const MyReactApp = () => {
+      const [formData, setFormData] = useState({
+         name: '',
+         sectors: [],
+         agreeToTerms: false,
+      });
+
+      const [updateData, setUpdateData] = useState({
+         name: '',
+         sector_id: '',
+      });
+
+      const [errors, setErrors] = useState({});
+      const [sectorOptions, setSectorOptions] = useState([]);
+      const [userData, setUserData] = useState(null);
+      const [token, setToken] = useState(localStorage.getItem('token'));
+      const [loading, setLoading] = useState(false);
+
+      useEffect(() => {
+         // Fetch sector data from your API
+         fetch('http://localhost/reactAppAssesment/api.php?get_sectors=true')
+                 .then((response) => response.json())
+                 .then((result) => {
+                    setSectorOptions(result.data);
+                 })
+                 .catch((error) => console.error('Error fetching sector data:', error));
+
+         // Fetch user data if token is present
+         if (token) {
+            fetch('http://localhost/reactAppAssesment/api.php?get_user_data=true', {
+               method: 'GET',
+               headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + token,
+               },
+            })
+                    .then((response) => response.json())
+                    .then((result) => {
+                       if (result.status === 'success' && result.data.length > 0) {
+                          setUserData(result.data[0]);
+                          // Set initial values for the update form
+                          setUpdateData({
+                             name: result.data[0].name,
+                             sector_id: result.data[0].sector_id,
+                          });
+                       }
+                    })
+                    .catch((error) => console.error('Error fetching user data:', error));
+         }
+      }, [token]);
+
+      const handleChange = (e) => {
+         const { name, value, type, checked } = e.target;
+
+         setFormData((prevData) => ({
+            ...prevData,
+            [name]: type === 'checkbox' ? checked : value,
+         }));
+      };
+
+      const handleUpdateChange = (e) => {
+         const { name, value } = e.target;
+
+         setUpdateData((prevData) => ({
+            ...prevData,
+            [name]: value,
+         }));
+      };
+
+      const handleSubmit = async (e) => {
+         e.preventDefault();
+
+         // Simple validation
+         const newErrors = {};
+         if (!formData.name.trim()) {
+            newErrors.name = 'Name is required';
+         }
+         if (formData.sectors.length === 0) {
+            newErrors.sectors = 'Please select a sector';
+         }
+         if (!formData.agreeToTerms) {
+            newErrors.agreeToTerms = 'Please agree to the terms';
+         }
+
+         // Update errors state
+         setErrors(newErrors);
+
+         // If there are errors, stop submission
+         if (Object.keys(newErrors).length > 0) {
+            return;
+         }
+         setLoading(true);
+         await new Promise(resolve => setTimeout(resolve, 500));
+         // Form data is valid, send it to the server
+         try {
+            const response = await fetch('http://localhost/reactAppAssesment/api.php', {
+               method: 'POST',
+               headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                  'Authorization': `Bearer ${token}`,
+               },
+               body: new URLSearchParams({
+                  save_user: true,
+                  name: formData.name,
+                  sector_id: formData.sectors,
+                  agreeToTerms: formData.agreeToTerms,
+               }),
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+               console.log('Data saved successfully');
+               setToken(result.token);  // Update the token
+               localStorage.setItem('token', result.token);  // Save the token in localStorage
+            } else {
+               console.error('Error saving data:', result.message);
+            }
+         } catch (error) {
+            console.error('Error:', error);
+         }finally {
+            setLoading(false);
+         }
+      };
+
+      const handleLogout = () => {
+         setToken(null);  // Clear the token state
+         setUserData(null);
+         localStorage.removeItem('token');  // Remove the token from localStorage
+      };
+
+      const handleUpdate = async (e) => {
+         e.preventDefault();
+
+         // Simple validation for update form
+         const updateErrors = {};
+         if (!updateData.name.trim()) {
+            updateErrors.name = 'Name is required';
+         }
+         if (!updateData.sector_id) {
+            updateErrors.sector_id = 'Please select a sector';
+         }
+
+         // Update updateErrors state
+         setErrors(updateErrors);
+
+         // If there are errors, stop update
+         if (Object.keys(updateErrors).length > 0) {
+            return;
+         }
+         setLoading(true);
+         await new Promise(resolve => setTimeout(resolve, 500));
+         // Update data is valid, send it to the server for update
+         try {
+            const response = await fetch('http://localhost/reactAppAssesment/api.php?update_info=true', {
+               method: 'POST',
+               headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                  'Authorization': `Bearer ${token}`,
+               },
+               body: new URLSearchParams({
+                  update_user: true,
+                  name: updateData.name,
+                  sector_id: updateData.sector_id,
+               }),
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+               console.log('Data updated successfully');
+               let _sector = sectorOptions.find((sector) => sector.id === updateData.sector_id);
+               setUserData({
+                  name: updateData.name,
+                  sector_title: _sector ? _sector.title : ''
+               })
+               console.log('Fetch user data again after update');
+            } else {
+               console.error('Error updating data:', result.message);
+            }
+         } catch (error) {
+            console.error('Error:', error);
+         }finally {
+            setLoading(false);
+         }
+      };
+
+      return (
+              <div className="container mt-5">
+                 {!userData && (
+                         <form onSubmit={handleSubmit}>
+                            {loading && (
+                                    <div className="row">
+                                       <div className="col-sm-12 text-center mb-4">
+                                          <div className="spinner-border text-primary" role="status">
+                                             <span className="sr-only">Loading...</span>
+                                          </div>
+                                       </div>
+                                    </div>
+                            )}
+                            <div className="row">
+                               <div className="col-md-2">
+                                  <label>Name:</label>
+                               </div>
+                               <div className="col-md-10">
+                                  <div className="form-group">
+                                     <input
+                                             placeholder="User name.."
+                                             type="text"
+                                             className="form-control"
+                                             name="name"
+                                             value={formData.name}
+                                             onChange={handleChange}
+                                     />
+                                     {errors.name && <div className="text-danger">{errors.name}</div>}
+                                  </div>
+                               </div>
+                            </div>
+                            <div className="row">
+                               <div className="col-md-2">
+                                  <label>Sectors:</label>
+                               </div>
+                               <div className="col-md-10">
+                                  <div className="form-group">
+                                     <select
+                                             className="form-control"
+                                             name="sectors"
+                                             onChange={handleChange}
+                                     >
+                                        <option>--Select Sector--</option>
+                                        {sectorOptions.map((sector) => (
+                                                <option key={sector.id} value={sector.id}>
+                                                   {sector.title}
+                                                </option>
+                                        ))}
+                                     </select>
+                                     {errors.sectors && <div className="text-danger">{errors.sectors}</div>}
+                                  </div>
+                               </div>
+                            </div>
+
+                            <div className="row">
+                               <div className="col-md-2">
+                                  <label htmlFor="agreedToTerms" className="">Agree to terms</label>
+                               </div>
+                               <div className="col-md-10">
+                                  <input
+                                          id="agreedToTerms"
+                                          type="checkbox"
+                                          className=""
+                                          name="agreeToTerms"
+                                          checked={formData.agreeToTerms}
+                                          onChange={handleChange}
+                                  />
+
+                                  {errors.agreeToTerms && <div className="text-danger">{errors.agreeToTerms}</div>}
+                               </div>
+                            </div>
+
+                            <div className="row">
+                               <div className="col-md-2"></div>
+                               <div className="col-md-10">
+                                  <button type="submit" className="btn btn-primary">Save</button>
+                               </div>
+                            </div>
+                      </form>
+                 )
+
+                 }
+
+                 {userData && (
+                         <div className="row">
+                            <div className="col-md-6 mt-5">
+                               <h4>Hi, {userData.name}</h4>
+                               <p>Your current sector is : <span className="badge badge-info">{userData.sector_title}</span></p>
+                               {token && (
+                                       <button type="button" className="btn btn-danger btn-sm" onClick={handleLogout}>Logout</button>
+                               )}
+                            </div>
+                            <div className="col-md-6">
+                               <div className="mt-5">
+                                  <h3>Update your info</h3>
+                                  {loading && <div className="spinner-border text-primary" role="status">
+                                     <span className="sr-only">Loading...</span>
+                                  </div>}
+                                  {!loading && (
+                                          <form onSubmit={handleUpdate}>
+                                             <div className="form-group">
+                                                <label>Name:</label>
+                                                <input
+                                                        type="text"
+                                                        className="form-control"
+                                                        name="name"
+                                                        value={updateData.name}
+                                                        onChange={handleUpdateChange}
+                                                />
+                                                {errors.name && <div className="text-danger">{errors.name}</div>}
+                                             </div>
+                                             <div className="form-group">
+                                                <label>Sectors:</label>
+                                                <select
+                                                        className="form-control"
+                                                        name="sector_id"
+                                                        value={updateData.sector_id}
+                                                        onChange={handleUpdateChange}
+                                                >
+                                                   <option value="">--Select Sector--</option>
+                                                   {sectorOptions.map((sector) => (
+                                                           <option key={sector.id} value={sector.id}>
+                                                              {sector.title}
+                                                           </option>
+                                                   ))}
+                                                </select>
+                                                {errors.sector_id && <div className="text-danger">{errors.sector_id}</div>}
+                                             </div>
+
+                                             <button type="submit" className="btn btn-primary">Update</button>
+                                          </form>
+                                  )}
+                               </div>
+                            </div>
+                         </div>
+                 )}
+              </div>
+      );
+   };
+
+   // Render the React component
+   ReactDOM.render(<MyReactApp />, document.getElementById('root'));
+</script>
+
+</body>
+</html>
