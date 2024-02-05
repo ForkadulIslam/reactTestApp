@@ -63,7 +63,7 @@
 
 <script type="text/babel">
    const { useState, useEffect } = React;
-
+   const baseApi = 'http://localhost/reactAppAssesment/api.php';
    const MyReactApp = () => {
       const [formData, setFormData] = useState({
          name: '',
@@ -84,7 +84,7 @@
 
       useEffect(() => {
          // Fetch sector data from your API
-         fetch('http://localhost/reactAppAssesment/api.php?get_sectors=true')
+         fetch(baseApi+'?get_sectors=true')
                  .then((response) => response.json())
                  .then((result) => {
                     setSectorOptions(result.data);
@@ -93,7 +93,7 @@
 
          // Fetch user data if token is present
          if (token) {
-            fetch('http://localhost/reactAppAssesment/api.php?get_user_data=true', {
+            fetch(baseApi + '?get_user_data=true', {
                method: 'GET',
                headers: {
                   'Content-Type': 'application/json',
@@ -159,7 +159,7 @@
          await new Promise(resolve => setTimeout(resolve, 500));
          // Form data is valid, send it to the server
          try {
-            const response = await fetch('http://localhost/reactAppAssesment/api.php', {
+            const response = await fetch(baseApi, {
                method: 'POST',
                headers: {
                   'Content-Type': 'application/x-www-form-urlencoded',
@@ -218,7 +218,7 @@
          await new Promise(resolve => setTimeout(resolve, 500));
          // Update data is valid, send it to the server for update
          try {
-            const response = await fetch('http://localhost/reactAppAssesment/api.php?update_info=true', {
+            const response = await fetch(baseApi+'?update_info=true', {
                method: 'POST',
                headers: {
                   'Content-Type': 'application/x-www-form-urlencoded',
